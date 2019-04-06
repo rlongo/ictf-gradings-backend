@@ -3,7 +3,7 @@ package app
 import (
     "net/http"
     "github.com/gorilla/mux"
-	"github.com/rlongo/itcf-gradings-backend/api"
+	"github.com/rlongo/ictf-gradings-backend/api"
 )
 
 func NewRouter(storage api.StorageService) *mux.Router {

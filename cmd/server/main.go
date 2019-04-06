@@ -4,14 +4,19 @@ package main
 import (
 	"log"
 	"net/http"
-	"github.com/rlongo/itcf-gradings-backend/storage/psql"
-	"github.com/rlongo/itcf-gradings-backend/app"
+	"github.com/rlongo/ictf-gradings-backend/storage/psql"
+	"github.com/rlongo/ictf-gradings-backend/app"
 	"os"
 )
 
 func main() {
 
-	storageService, err := psql.Open(os.Getenv("DATABASE_URL"))
+    dbUrl := os.Getenv("DATABASE_URL")
+    if len(dbUrl) == 0 {
+        panic("env DATABASE_URL isn't set!")
+	}
+
+	storageService, err := psql.Open(dbUrl)
 	if err!=nil {
 		panic(err)
 	}
@@ -19,8 +24,8 @@ func main() {
 
 	port := os.Getenv("PORT")
 
-        if len(port) == 0 {
-            panic("env PORT isn't set!")
+    if len(port) == 0 {
+        panic("env PORT isn't set!")
 	}
 
 	log.Printf("listening on IPv4 address \"0.0.0.0\", port %s", port)

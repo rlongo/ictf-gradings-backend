@@ -2,7 +2,7 @@ package app
 
 import (
     "net/http"
-	"github.com/rlongo/itcf-gradings-backend/api"
+	"github.com/rlongo/ictf-gradings-backend/api"
 )
 
 type Route struct {

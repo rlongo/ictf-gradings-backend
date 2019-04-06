@@ -27,5 +27,6 @@ github.com/
 /vendor/
 /Godeps/
 
-# Postgres
+# Environment
 .pgdata
+.env

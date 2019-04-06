@@ -10,7 +10,7 @@ import (
 	"log"
 )
 
-var migrationFile = fmt.Sprintf("%s/src/github.com/rlongo/itcf-gradings-backend/storage/psql/schema.sql",
+var migrationFile = fmt.Sprintf("%s/src/github.com/rlongo/ictf-gradings-backend/storage/psql/schema.sql",
 									os.Getenv("GOPATH"))
 
 type PSQLStorageService struct {

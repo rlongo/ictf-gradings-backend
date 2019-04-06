@@ -9,7 +9,7 @@ import (
     "strconv"
     "net/http"
     "github.com/gorilla/mux"
-	"github.com/rlongo/itcf-gradings-backend/api"
+	"github.com/rlongo/ictf-gradings-backend/api"
 )
 
 const PostMaxSize = 2014 * 8 * 20 // 20KB

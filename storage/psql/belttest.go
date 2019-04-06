@@ -2,7 +2,7 @@ package psql
 
 import (
 	"strings"
-	"github.com/rlongo/itcf-gradings-backend/api"
+	"github.com/rlongo/ictf-gradings-backend/api"
 )
 
 const AdminDelimiter = "|"
