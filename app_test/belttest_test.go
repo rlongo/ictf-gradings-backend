@@ -1,4 +1,4 @@
-package app
+package app_test
 
 import (
 	"bytes"
@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/rlongo/ictf-gradings-backend/api"
+	"github.com/rlongo/ictf-gradings-backend/app"
 	"github.com/rlongo/ictf-gradings-backend/storage/mock"
 )
 
@@ -61,7 +62,7 @@ func TestGETBeltTests(t *testing.T) {
 	}
 
 	storageService := mock.MockStorageService{BeltTestsDB: expected}
-	router := NewRouter(&storageService)
+	router := app.NewRouter(&storageService)
 
 	request, _ := http.NewRequest(http.MethodGet, "/tests", nil)
 	response := httptest.NewRecorder()
@@ -79,7 +80,7 @@ func TestGETBeltTest(t *testing.T) {
 	}
 
 	storageService := mock.MockStorageService{BeltTestsDB: expected}
-	router := NewRouter(&storageService)
+	router := app.NewRouter(&storageService)
 
 	t.Run("returns Existing Test", func(t *testing.T) {
 		expectedTest := expected[2]
@@ -113,7 +114,7 @@ func TestPOSTBeltTest(t *testing.T) {
 	t.Run("returns 201 on Valid POST", func(t *testing.T) {
 		expectedTest := api.BeltTest{ID: 0, Name: "test1", Date: 1, Location: "", Admins: nil}
 		storageService := mock.MockStorageService{BeltTestsDB: nil}
-		router := NewRouter(&storageService)
+		router := app.NewRouter(&storageService)
 
 		expectedTestJSON, _ := json.Marshal(expectedTest)
 		b := bytes.NewBuffer(expectedTestJSON)
@@ -136,7 +137,7 @@ func TestPOSTBeltTest(t *testing.T) {
 
 	t.Run("returns 400 on an Invalid POST", func(t *testing.T) {
 		storageService := mock.MockStorageService{BeltTestsDB: nil}
-		router := NewRouter(&storageService)
+		router := app.NewRouter(&storageService)
 
 		expectedTestJSON, _ := json.Marshal("foo")
 		b := bytes.NewBuffer(expectedTestJSON)
@@ -149,7 +150,7 @@ func TestPOSTBeltTest(t *testing.T) {
 
 	t.Run("returns 400 on an Empty POST", func(t *testing.T) {
 		storageService := mock.MockStorageService{BeltTestsDB: nil}
-		router := NewRouter(&storageService)
+		router := app.NewRouter(&storageService)
 
 		request, _ := http.NewRequest(http.MethodPost, "/test", nil)
 		response := httptest.NewRecorder()
