@@ -6,7 +6,7 @@ import (
 	"github.com/rlongo/ictf-gradings-backend/api"
 )
 
-const AdminDelimiter = "|"
+const adminDelimiter = "|"
 
 func (db *PSQLStorageService) AllBeltTests() (api.BeltTests, error) {
 	query := "SELECT id, test_name, test_date, dojang, admins FROM belt_tests"
@@ -26,7 +26,7 @@ func (db *PSQLStorageService) AllBeltTests() (api.BeltTests, error) {
 			return nil, err
 		}
 
-		t.Admins = strings.Split(admins, AdminDelimiter)
+		t.Admins = strings.Split(admins, adminDelimiter)
 
 		belttests = append(belttests, t)
 	}
@@ -34,7 +34,7 @@ func (db *PSQLStorageService) AllBeltTests() (api.BeltTests, error) {
 	return belttests, nil
 }
 
-func (db *PSQLStorageService) GetBeltTest(testID int) (*api.BeltTest, error) {
+func (db *PSQLStorageService) GetBeltTest(testID int64) (*api.BeltTest, error) {
 	t := new(api.BeltTest)
 	var admins string
 
@@ -46,7 +46,7 @@ func (db *PSQLStorageService) GetBeltTest(testID int) (*api.BeltTest, error) {
 		return nil, err
 	}
 
-	t.Admins = strings.Split(admins, AdminDelimiter)
+	t.Admins = strings.Split(admins, adminDelimiter)
 
 	return t, nil
 }
@@ -59,7 +59,7 @@ func (db *PSQLStorageService) CreateBeltTest(test api.BeltTest) (int64, error) {
 		VALUES ($1, $2, $3, $4)
 		RETURNING id`
 
-	admins := strings.Join(test.Admins, AdminDelimiter)
+	admins := strings.Join(test.Admins, adminDelimiter)
 
 	err := db.QueryRow(query, test.Name, test.Date, test.Location, admins).Scan(&id)
 

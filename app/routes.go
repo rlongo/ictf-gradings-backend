@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/rlongo/ictf-gradings-backend/api"
-	"github.com/rlongo/ictf-gradings-backend/app/handlers"
+	"github.com/rlongo/ictf-gradings-backend/app/handler"
 )
 
 type Route struct {
@@ -17,7 +17,7 @@ type Route struct {
 type Routes []Route
 
 var routes = Routes{
-	Route{"BeltTest Indicies", "GET", "/tests", handlers.GetBeltTests},
-	Route{"BeltTest Index", "GET", "/test/{id}", handlers.GetBeltTest},
-	Route{"BeltTest Create", "POST", "/test", handlers.CreateBeltTest},
+	Route{"BeltTest Indicies", "GET", "/tests", handler.GetBeltTests},
+	Route{"BeltTest Index", "GET", "/test/{id}", handler.GetBeltTest},
+	Route{"BeltTest Create", "POST", "/test", handler.CreateBeltTest},
 }

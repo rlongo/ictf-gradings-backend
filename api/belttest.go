@@ -14,6 +14,6 @@ type BeltTests []*BeltTest
 // Interface to the belt tests
 type StorageServiceBeltTest interface {
 	AllBeltTests() (BeltTests, error)
-	GetBeltTest(int) (*BeltTest, error)
+	GetBeltTest(int64) (*BeltTest, error)
 	CreateBeltTest(BeltTest) (int64, error)
 }

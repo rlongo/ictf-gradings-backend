@@ -1,4 +1,4 @@
-package handlers
+package handler
 
 import (
 	"encoding/json"
@@ -10,10 +10,10 @@ import (
 const PostMaxSize = 2014 * 8 * 20 // 20KB
 
 // setErrorResponse is used to reply with an error
-func setErrorResponse(w http.ResponseWriter, err error) {
+func setErrorResponse(w http.ResponseWriter, code int, err error) {
 	log.Print(err.Error())
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
-	w.WriteHeader(422) // unprocessable entity
+	w.WriteHeader(code)
 	if err := json.NewEncoder(w).Encode(err.Error()); err != nil {
 		panic(err)
 	}
