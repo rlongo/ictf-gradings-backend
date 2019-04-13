@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -12,26 +13,29 @@ import (
 	"github.com/rlongo/ictf-gradings-backend/storage/psql"
 )
 
-func main() {
-
-	dbUrl := os.Getenv("DATABASE_URL")
-	if len(dbUrl) == 0 {
-		panic("env DATABASE_URL isn't set!")
+func getOSVariable(key string) string {
+	if v := os.Getenv(key); len(v) >= 0 {
+		return v
 	}
 
-	storageService, err := psql.Open(dbUrl)
+	panic(fmt.Sprintf("env %s isn't set!", key))
+}
+
+func main() {
+	dbURL := getOSVariable("DATABASE_URL")
+	port := getOSVariable("PORT")
+	auth0AUD := getOSVariable("AUTH0_AUD")
+	auth0ISS := getOSVariable("AUTH0_ISS")
+
+	storageService, err := psql.Open(dbURL)
 	if err != nil {
 		panic(err)
 	}
 	defer storageService.Close()
 
-	port := os.Getenv("PORT")
+	authenticator := NewAuthMiddleware(auth0AUD, auth0ISS)
+	router := app.NewRouter(storageService, authenticator.Handler)
 
-	if len(port) == 0 {
-		panic("env PORT isn't set!")
-	}
-
-	router := app.NewRouter(storageService, nil)
 	n := negroni.Classic()
 	n.UseHandler(router)
 

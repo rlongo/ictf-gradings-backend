@@ -27,5 +27,6 @@ github.com/
 .pgdata
 .env
 
-# Executables
+# BIN
+test.sh
 cmd/server/server
