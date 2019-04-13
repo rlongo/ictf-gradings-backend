@@ -1,35 +1,31 @@
 package app
 
 import (
-	"log"
 	"net/http"
-	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/rlongo/ictf-gradings-backend/api"
 )
 
-func NewRouter(storage api.StorageService) *mux.Router {
+// NewRouter exports a new router class and used Dependencu Injection to introduce
+// any externally required items
+func NewRouter(storage api.StorageService, authenticator mux.MiddlewareFunc) *mux.Router {
 	router := mux.NewRouter().StrictSlash(true)
-	for _, route := range routes {
+	for _, route := range appRoutes {
 		var handler http.Handler
 		handler = route.HandlerFunc(storage)
-		handler = logger(handler, route.Name)
+
+		if route.ReqAuth == true && authenticator != nil {
+			handler = authenticator(handler)
+		}
 
 		router.
 			Methods(route.Method).
 			Path(route.Pattern).
 			Name(route.Name).
 			Handler(handler)
+
 	}
 
 	return router
-}
-
-func logger(inner http.Handler, name string) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-		inner.ServeHTTP(w, r)
-		log.Printf("%s\t%s\t%s\t%s", r.Method, r.RequestURI, name, time.Since(start))
-	})
 }

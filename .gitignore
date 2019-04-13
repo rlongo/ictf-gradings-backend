@@ -26,3 +26,6 @@ github.com/
 # Environment
 .pgdata
 .env
+
+# Executables
+cmd/server/server

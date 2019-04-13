@@ -13,6 +13,25 @@ import (
 	"github.com/rlongo/ictf-gradings-backend/storage/mock"
 )
 
+type authenticator bool
+
+func (a *authenticator) authenticate(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		*a = true
+		h.ServeHTTP(w, r)
+	})
+}
+
+func (a *authenticator) assertRequestedAuthentication(t *testing.T, requested bool) {
+	if (bool)(*a) != requested {
+		msg := "use"
+		if !requested {
+			msg = "bypass"
+		}
+		t.Errorf("%s: Was expecting to %s authentication", t.Name(), msg)
+	}
+}
+
 func assertStatus(t *testing.T, got, want int) {
 	t.Helper()
 	if got != want {
@@ -62,14 +81,27 @@ func TestGETBeltTests(t *testing.T) {
 	}
 
 	storageService := mock.MockStorageService{BeltTestsDB: expected}
-	router := app.NewRouter(&storageService)
 
-	request, _ := http.NewRequest(http.MethodGet, "/tests", nil)
-	response := httptest.NewRecorder()
-	router.ServeHTTP(response, request)
+	t.Run("ignores authentication", func(t *testing.T) {
+		var auth authenticator
+		router := app.NewRouter(&storageService, auth.authenticate)
 
-	assertStatus(t, response.Code, http.StatusOK)
-	assertResponseBodyTests(t, response.Body.Bytes(), expected)
+		request, _ := http.NewRequest(http.MethodGet, "/tests", nil)
+		response := httptest.NewRecorder()
+		router.ServeHTTP(response, request)
+
+		auth.assertRequestedAuthentication(t, false)
+	})
+
+	t.Run("returns Existing Tests", func(t *testing.T) {
+		router := app.NewRouter(&storageService, nil)
+		request, _ := http.NewRequest(http.MethodGet, "/tests", nil)
+		response := httptest.NewRecorder()
+		router.ServeHTTP(response, request)
+
+		assertStatus(t, response.Code, http.StatusOK)
+		assertResponseBodyTests(t, response.Body.Bytes(), expected)
+	})
 }
 
 func TestGETBeltTest(t *testing.T) {
@@ -80,9 +112,22 @@ func TestGETBeltTest(t *testing.T) {
 	}
 
 	storageService := mock.MockStorageService{BeltTestsDB: expected}
-	router := app.NewRouter(&storageService)
+
+	t.Run("requires authentication", func(t *testing.T) {
+		var auth authenticator
+		router := app.NewRouter(&storageService, auth.authenticate)
+
+		expectedTest := expected[2]
+		request, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/test/%d", expectedTest.ID), nil)
+		response := httptest.NewRecorder()
+		router.ServeHTTP(response, request)
+
+		auth.assertRequestedAuthentication(t, true)
+	})
 
 	t.Run("returns Existing Test", func(t *testing.T) {
+		router := app.NewRouter(&storageService, nil)
+
 		expectedTest := expected[2]
 		request, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/test/%d", expectedTest.ID), nil)
 		response := httptest.NewRecorder()
@@ -93,6 +138,8 @@ func TestGETBeltTest(t *testing.T) {
 	})
 
 	t.Run("returns 404 on Missing Test", func(t *testing.T) {
+		router := app.NewRouter(&storageService, nil)
+
 		request, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/test/%d", len(expected)+12), nil)
 		response := httptest.NewRecorder()
 		router.ServeHTTP(response, request)
@@ -101,6 +148,8 @@ func TestGETBeltTest(t *testing.T) {
 	})
 
 	t.Run("returns 404 on Invalid Test ID", func(t *testing.T) {
+		router := app.NewRouter(&storageService, nil)
+
 		request, _ := http.NewRequest(http.MethodGet, "/test/dinosaur", nil)
 		response := httptest.NewRecorder()
 		router.ServeHTTP(response, request)
@@ -111,10 +160,22 @@ func TestGETBeltTest(t *testing.T) {
 
 func TestPOSTBeltTest(t *testing.T) {
 
+	t.Run("requires authentication", func(t *testing.T) {
+		storageService := mock.MockStorageService{BeltTestsDB: nil}
+		var auth authenticator
+		router := app.NewRouter(&storageService, auth.authenticate)
+
+		request, _ := http.NewRequest(http.MethodPost, "/test", nil)
+		response := httptest.NewRecorder()
+		router.ServeHTTP(response, request)
+
+		auth.assertRequestedAuthentication(t, true)
+	})
+
 	t.Run("returns 201 on Valid POST", func(t *testing.T) {
 		expectedTest := api.BeltTest{ID: 0, Name: "test1", Date: 1, Location: "", Admins: nil}
 		storageService := mock.MockStorageService{BeltTestsDB: nil}
-		router := app.NewRouter(&storageService)
+		router := app.NewRouter(&storageService, nil)
 
 		expectedTestJSON, _ := json.Marshal(expectedTest)
 		b := bytes.NewBuffer(expectedTestJSON)
@@ -137,7 +198,7 @@ func TestPOSTBeltTest(t *testing.T) {
 
 	t.Run("returns 400 on an Invalid POST", func(t *testing.T) {
 		storageService := mock.MockStorageService{BeltTestsDB: nil}
-		router := app.NewRouter(&storageService)
+		router := app.NewRouter(&storageService, nil)
 
 		expectedTestJSON, _ := json.Marshal("foo")
 		b := bytes.NewBuffer(expectedTestJSON)
@@ -150,7 +211,7 @@ func TestPOSTBeltTest(t *testing.T) {
 
 	t.Run("returns 400 on an Empty POST", func(t *testing.T) {
 		storageService := mock.MockStorageService{BeltTestsDB: nil}
-		router := app.NewRouter(&storageService)
+		router := app.NewRouter(&storageService, nil)
 
 		request, _ := http.NewRequest(http.MethodPost, "/test", nil)
 		response := httptest.NewRecorder()

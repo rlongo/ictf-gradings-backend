@@ -7,17 +7,18 @@ import (
 	"github.com/rlongo/ictf-gradings-backend/app/handler"
 )
 
-type Route struct {
+type route struct {
 	Name        string
 	Method      string
 	Pattern     string
+	ReqAuth     bool
 	HandlerFunc func(api.StorageService) http.HandlerFunc
 }
 
-type Routes []Route
+type routes []route
 
-var routes = Routes{
-	Route{"BeltTest Indicies", "GET", "/tests", handler.GetBeltTests},
-	Route{"BeltTest Index", "GET", "/test/{id}", handler.GetBeltTest},
-	Route{"BeltTest Create", "POST", "/test", handler.CreateBeltTest},
+var appRoutes = routes{
+	route{"BeltTest Indicies", "GET", "/tests", false, handler.GetBeltTests},
+	route{"BeltTest Index", "GET", "/test/{id}", true, handler.GetBeltTest},
+	route{"BeltTest Create", "POST", "/test", true, handler.CreateBeltTest},
 }
