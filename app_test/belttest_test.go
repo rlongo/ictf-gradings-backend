@@ -6,7 +6,10 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
+
+	"github.com/urfave/negroni"
 
 	"github.com/rlongo/ictf-gradings-backend/api"
 	"github.com/rlongo/ictf-gradings-backend/app"
@@ -15,11 +18,9 @@ import (
 
 type authenticator bool
 
-func (a *authenticator) authenticate(h http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		*a = true
-		h.ServeHTTP(w, r)
-	})
+func (a *authenticator) authenticate(rw http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
+	*a = true
+	next.ServeHTTP(rw, r)
 }
 
 func (a *authenticator) assertRequestedAuthentication(t *testing.T, requested bool) {
@@ -29,6 +30,12 @@ func (a *authenticator) assertRequestedAuthentication(t *testing.T, requested bo
 			msg = "bypass"
 		}
 		t.Errorf("%s: Was expecting to %s authentication", t.Name(), msg)
+	}
+}
+
+func GetRoleParser(role app.Role) app.RoleParser {
+	return func(*http.Request) app.Role {
+		return role
 	}
 }
 
@@ -84,18 +91,37 @@ func TestGETBeltTests(t *testing.T) {
 
 	t.Run("ignores authentication", func(t *testing.T) {
 		var auth authenticator
-		router := app.NewRouter(&storageService, auth.authenticate)
+		n := negroni.New(negroni.HandlerFunc(auth.authenticate))
+		router := app.NewRouter(&storageService, n, GetRoleParser(app.RoleInstructor))
 
-		request, _ := http.NewRequest(http.MethodGet, "/tests", nil)
+		request, _ := http.NewRequest(http.MethodGet, "/api/v1/dojang/tests", nil)
 		response := httptest.NewRecorder()
 		router.ServeHTTP(response, request)
 
-		auth.assertRequestedAuthentication(t, false)
+		auth.assertRequestedAuthentication(t, true)
+		assertStatus(t, response.Code, http.StatusOK)
+	})
+
+	t.Run("blocks wrong role", func(t *testing.T) {
+		var auth authenticator
+		n := negroni.New(negroni.HandlerFunc(auth.authenticate))
+		router := app.NewRouter(&storageService, n, GetRoleParser(app.RoleNone))
+
+		request, _ := http.NewRequest(http.MethodGet, "/api/v1/dojang/tests", nil)
+		response := httptest.NewRecorder()
+		router.ServeHTTP(response, request)
+
+		auth.assertRequestedAuthentication(t, true)
+		assertStatus(t, response.Code, http.StatusForbidden)
 	})
 
 	t.Run("returns Existing Tests", func(t *testing.T) {
-		router := app.NewRouter(&storageService, nil)
-		request, _ := http.NewRequest(http.MethodGet, "/tests", nil)
+		router := app.NewRouter(&storageService, negroni.New(), GetRoleParser(app.RoleInstructor))
+
+		fmt.Printf("PrintingRoutes\n")
+		app.PrintRoutes(os.Stdout, router)
+
+		request, _ := http.NewRequest(http.MethodGet, "/api/v1/dojang/tests", nil)
 		response := httptest.NewRecorder()
 		router.ServeHTTP(response, request)
 
@@ -115,21 +141,37 @@ func TestGETBeltTest(t *testing.T) {
 
 	t.Run("requires authentication", func(t *testing.T) {
 		var auth authenticator
-		router := app.NewRouter(&storageService, auth.authenticate)
+		n := negroni.New(negroni.HandlerFunc(auth.authenticate))
+		router := app.NewRouter(&storageService, n, GetRoleParser(app.RoleSupervisor))
 
 		expectedTest := expected[2]
-		request, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/test/%d", expectedTest.ID), nil)
+		request, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/dojang/test/%d", expectedTest.ID), nil)
 		response := httptest.NewRecorder()
 		router.ServeHTTP(response, request)
 
 		auth.assertRequestedAuthentication(t, true)
+		assertStatus(t, response.Code, http.StatusOK)
+	})
+
+	t.Run("blocks wrong role", func(t *testing.T) {
+		var auth authenticator
+		n := negroni.New(negroni.HandlerFunc(auth.authenticate))
+		router := app.NewRouter(&storageService, n, GetRoleParser(app.RoleNone))
+
+		expectedTest := expected[2]
+		request, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/dojang/test/%d", expectedTest.ID), nil)
+		response := httptest.NewRecorder()
+		router.ServeHTTP(response, request)
+
+		auth.assertRequestedAuthentication(t, true)
+		assertStatus(t, response.Code, http.StatusForbidden)
 	})
 
 	t.Run("returns Existing Test", func(t *testing.T) {
-		router := app.NewRouter(&storageService, nil)
+		router := app.NewRouter(&storageService, negroni.New(), GetRoleParser(app.RoleSupervisor))
 
 		expectedTest := expected[2]
-		request, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/test/%d", expectedTest.ID), nil)
+		request, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/dojang/test/%d", expectedTest.ID), nil)
 		response := httptest.NewRecorder()
 		router.ServeHTTP(response, request)
 
@@ -138,9 +180,9 @@ func TestGETBeltTest(t *testing.T) {
 	})
 
 	t.Run("returns 404 on Missing Test", func(t *testing.T) {
-		router := app.NewRouter(&storageService, nil)
+		router := app.NewRouter(&storageService, negroni.New(), GetRoleParser(app.RoleSupervisor))
 
-		request, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/test/%d", len(expected)+12), nil)
+		request, _ := http.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/dojang/test/%d", len(expected)+12), nil)
 		response := httptest.NewRecorder()
 		router.ServeHTTP(response, request)
 
@@ -148,9 +190,9 @@ func TestGETBeltTest(t *testing.T) {
 	})
 
 	t.Run("returns 404 on Invalid Test ID", func(t *testing.T) {
-		router := app.NewRouter(&storageService, nil)
+		router := app.NewRouter(&storageService, negroni.New(), GetRoleParser(app.RoleSupervisor))
 
-		request, _ := http.NewRequest(http.MethodGet, "/test/dinosaur", nil)
+		request, _ := http.NewRequest(http.MethodGet, "/api/v1/dojang/test/dinosaur", nil)
 		response := httptest.NewRecorder()
 		router.ServeHTTP(response, request)
 
@@ -163,24 +205,39 @@ func TestPOSTBeltTest(t *testing.T) {
 	t.Run("requires authentication", func(t *testing.T) {
 		storageService := mock.MockStorageService{BeltTestsDB: nil}
 		var auth authenticator
-		router := app.NewRouter(&storageService, auth.authenticate)
+		n := negroni.New(negroni.HandlerFunc(auth.authenticate))
+		router := app.NewRouter(&storageService, n, GetRoleParser(app.RoleSupervisor))
 
-		request, _ := http.NewRequest(http.MethodPost, "/test", nil)
+		request, _ := http.NewRequest(http.MethodPost, "/api/v1/dojang/test", nil)
 		response := httptest.NewRecorder()
 		router.ServeHTTP(response, request)
 
 		auth.assertRequestedAuthentication(t, true)
 	})
 
+	t.Run("blocks wrong role", func(t *testing.T) {
+		storageService := mock.MockStorageService{BeltTestsDB: nil}
+		var auth authenticator
+		n := negroni.New(negroni.HandlerFunc(auth.authenticate))
+		router := app.NewRouter(&storageService, n, GetRoleParser(app.RoleInstructor))
+
+		request, _ := http.NewRequest(http.MethodPost, "/api/v1/dojang/test", nil)
+		response := httptest.NewRecorder()
+		router.ServeHTTP(response, request)
+
+		auth.assertRequestedAuthentication(t, true)
+		assertStatus(t, response.Code, http.StatusForbidden)
+	})
+
 	t.Run("returns 201 on Valid POST", func(t *testing.T) {
 		expectedTest := api.BeltTest{ID: 0, Name: "test1", Date: 1, Location: "", Admins: nil}
 		storageService := mock.MockStorageService{BeltTestsDB: nil}
-		router := app.NewRouter(&storageService, nil)
+		router := app.NewRouter(&storageService, negroni.New(), GetRoleParser(app.RoleSupervisor))
 
 		expectedTestJSON, _ := json.Marshal(expectedTest)
 		b := bytes.NewBuffer(expectedTestJSON)
 
-		request, _ := http.NewRequest(http.MethodPost, "/test", b)
+		request, _ := http.NewRequest(http.MethodPost, "/api/v1/dojang/test", b)
 		response := httptest.NewRecorder()
 		router.ServeHTTP(response, request)
 		assertStatus(t, response.Code, http.StatusCreated)
@@ -198,12 +255,12 @@ func TestPOSTBeltTest(t *testing.T) {
 
 	t.Run("returns 400 on an Invalid POST", func(t *testing.T) {
 		storageService := mock.MockStorageService{BeltTestsDB: nil}
-		router := app.NewRouter(&storageService, nil)
+		router := app.NewRouter(&storageService, negroni.New(), GetRoleParser(app.RoleSupervisor))
 
 		expectedTestJSON, _ := json.Marshal("foo")
 		b := bytes.NewBuffer(expectedTestJSON)
 
-		request, _ := http.NewRequest(http.MethodPost, "/test", b)
+		request, _ := http.NewRequest(http.MethodPost, "/api/v1/dojang/test", b)
 		response := httptest.NewRecorder()
 		router.ServeHTTP(response, request)
 		assertStatus(t, response.Code, http.StatusBadRequest)
@@ -211,9 +268,9 @@ func TestPOSTBeltTest(t *testing.T) {
 
 	t.Run("returns 400 on an Empty POST", func(t *testing.T) {
 		storageService := mock.MockStorageService{BeltTestsDB: nil}
-		router := app.NewRouter(&storageService, nil)
+		router := app.NewRouter(&storageService, negroni.New(), GetRoleParser(app.RoleSupervisor))
 
-		request, _ := http.NewRequest(http.MethodPost, "/test", nil)
+		request, _ := http.NewRequest(http.MethodPost, "/api/v1/dojang/test", nil)
 		response := httptest.NewRecorder()
 		router.ServeHTTP(response, request)
 		assertStatus(t, response.Code, http.StatusBadRequest)

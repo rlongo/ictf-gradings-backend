@@ -34,17 +34,19 @@ func main() {
 	defer storageService.Close()
 
 	authenticator := NewAuthMiddleware(auth0AUD, auth0ISS)
-	router := app.NewRouter(storageService, authenticator.Handler)
-
-	n := negroni.Classic()
-	n.UseHandler(router)
+	middleware := negroni.New(
+		negroni.NewRecovery(),
+		negroni.NewLogger(),
+		negroni.HandlerFunc(authenticator.HandlerWithNext),
+	)
+	router := app.NewRouter(storageService, middleware, RoleParser)
 
 	log.Printf("listening on IPv4 address \"0.0.0.0\", port %s", port)
 	log.Printf("listening on IPv6 address \"::\", port %s", port)
 
 	s := &http.Server{
 		Addr:           ":" + port,
-		Handler:        n,
+		Handler:        router,
 		WriteTimeout:   time.Second * 15,
 		ReadTimeout:    time.Second * 15,
 		IdleTimeout:    time.Second * 60,

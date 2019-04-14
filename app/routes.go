@@ -11,14 +11,16 @@ type route struct {
 	Name        string
 	Method      string
 	Pattern     string
-	ReqAuth     bool
+	AuthRole    Role
 	HandlerFunc func(api.StorageService) http.HandlerFunc
 }
 
 type routes []route
 
-var appRoutes = routes{
-	route{"BeltTest Indicies", "GET", "/tests", false, handler.GetBeltTests},
-	route{"BeltTest Index", "GET", "/test/{id}", true, handler.GetBeltTest},
-	route{"BeltTest Create", "POST", "/test", true, handler.CreateBeltTest},
+var dojangRoutes = routes{
+	route{"BeltTest Indicies", "GET", "/dojang/tests", (RoleInstructor | RoleSupervisor), handler.GetBeltTests},
+	route{"BeltTest Index", "GET", "/dojang/test/{id}", (RoleInstructor | RoleSupervisor), handler.GetBeltTest},
+	route{"BeltTest Create", "POST", "/dojang/test", RoleSupervisor, handler.CreateBeltTest},
 }
+
+var adminRoutes = routes{}
